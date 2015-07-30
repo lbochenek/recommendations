@@ -202,18 +202,98 @@ function Recommender(){
     return recommendationsArr.slice(0, self.n+1);
   }
 
-  // this.computeDeviations(self){
-  //   for(person in self.database){
-  //     if(self.database.hasOwnProperty(person)){
-  //       var ratings = self.database[person];
-  //       for(item in ratings){
-  //         if(ratings.hasOwnProperty(item)){
+  this.computeDeviations = function(self){
+    //for each person, get ratings
+    for(person in self.database){
+      if(self.database.hasOwnProperty(person)){
+        var ratings = self.database[person];
+        //for each item and rating
+        for(item in ratings){
+          if(ratings.hasOwnProperty(item)){
+            //for each item2 and rating2 in set of ratings
+            for(item2 in ratings){
+              if((ratings.hasOwnProperty(item2)) && (item != item2)){
+                if(!self.frequencies[item]){
+                  self.frequencies[item] = {};
+                }
+                if(!self.frequencies[item][item2]){
+                  self.frequencies[item][item2] = 0;
+                }
+                if(!self.deviations[item]){
+                  self.deviations[item] = {};
+                }
+                if(!self.deviations[item][item2]){
+                  self.deviations[item][item2] = 0;
+                }
+                self.frequencies[item][item2]++;
+                var difference = ratings[item] - ratings[item2];
+                self.deviations[item][item2] += difference;
+              }
+            }
+          }
+        }
+      }
+    }
+    //divide numerator (currently stored in self.deviations) by frequencies
+    for(item in self.deviations){
+      if(self.deviations.hasOwnProperty(item)){
+        for(item2 in self.deviations[item]){
+          if(self.deviations[item].hasOwnProperty(item2)){
+            self.deviations[item][item2] /= self.frequencies[item][item2];
+          }
+        }
+      }
+    }
+  }
 
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
+  this.slopeOneRec = function(self, userRatings){
+    var recommendations = {};
+    var frequencies = {};
+
+    //loop through each item user has rated
+    for(targetItem in userRatings){
+      var targetRating = userRatings[targetItem];
+      if(userRatings.hasOwnProperty(targetItem )){
+        //loop through all items user didn't rate
+        for(otherItem in self.deviations){
+          var otherRatings = self.deviations[otherItem];
+          if(self.deviations.hasOwnProperty(otherItem)&&
+            (!(otherItem in userRatings))&&
+            (targetItem in self.deviations[otherItem])){
+            var freq = self.frequencies[otherItem][targetItem];
+            if(!recommendations[otherItem]){
+              recommendations[otherItem] = 0;
+            }
+            if(!frequencies[otherItem]){
+              frequencies[otherItem] = 0;
+            }
+            recommendations[otherItem] += (otherRatings[targetItem] + targetRating) * freq;
+            frequencies[otherItem] += freq;
+          }
+        }
+      }
+    }
+    //divide by denominator
+    for(rec in recommendations){
+      if(recommendations.hasOwnProperty(rec)){
+        recommendations[rec] /= frequencies[rec];
+      }
+    }
+
+    var recommendationsArr = convertObjtoArry(recommendations);
+
+    recommendationsArr.sort(function(a,b){
+      if(a["value"] > b["value"]){
+        return -1;
+      }
+      if(a["value"] < b["value"]){
+        return 1;
+      }
+      return 0;
+    });
+
+    return recommendationsArr;
+  }
 }
 
 function convertObjtoArry(obj){
@@ -231,3 +311,11 @@ function convertObjtoArry(obj){
 var rec = new Recommender();
 rec.init(rec, users1, 1, pearson, true, 5);
 console.log(rec.recommend(rec, "Jordyn"));
+rec.computeDeviations(rec);
+console.log(rec.slopeOneRec(rec, users1['Jordyn']));
+
+var itembased = new Recommender();
+itembased.init(itembased, users2, 1, pearson, true, 5);
+console.log(itembased.recommend(itembased, "Ben"));
+itembased.computeDeviations(itembased);
+console.log(itembased.slopeOneRec(itembased, users2['Ben']));
