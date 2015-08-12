@@ -16,6 +16,28 @@ var users2 = {
   "Daisy": {"Taylor Swift": 5, "Whitney Houston": 3}
 }
 
+var users3 = {
+  "David": {"Imagine Dragons": 3, "Daft Punk": 5, "Lorde": 4, "Fall Out Boy": 1},
+  "Matt": {"Imagine Dragons": 3, "Daft Punk": 4, "Lorde": 4, "Fall Out Boy": 1},
+  "Ben": {"Kacey Musgraves": 4, "Imagine Dragons": 3, "Lorde": 3, "Fall Out Boy": 1},
+  "Chris": {"Kacey Musgraves": 4, "Imagine Dragons": 4, "Daft Punk": 4, "Lorde": 3, "Fall Out Boy": 1},
+  "Tori": {"Kacey Musgraves": 5, "Imagine Dragons": 4, "Daft Punk": 5, "Fall Out Boy": 3}
+};
+
+music = {
+  "Dr Dog/Fate": {"piano": 2.5, "vocals": 4, "beat": 3.5, "blues": 3, "guitar": 5, "backup vocals": 4, "rap": 1},
+  "Phoenix/Lisztomania": {"piano": 2, "vocals": 5, "beat": 5, "blues": 3, "guitar": 2,"backup vocals": 1, "rap": 1},
+  "Heartless Bastards/Out at Sea": {"piano": 1, "vocals": 5, "beat": 4, "blues": 2, "guitar":4, "backup vocals": 1, "rap": 1},
+  "Todd Snider/Don't Tempt Me": {"piano": 4, "vocals": 5, "beat": 4, "blues": 4, "guitar":1, "backup vocals": 5, "rap": 1},
+  "The Black Keys/Magic Potion":{"piano": 1, "vocals": 4, "beat": 5, "blues": 3.5, "guitar":5, "backup vocals": 1, "rap": 1},
+  "Glee Cast/Jessie's Girl": {"piano": 1, "vocals": 5, "beat": 3.5, "blues": 3, "guitar":4, "backup vocals": 5, "rap": 1},
+  "La Roux/Bulletproof": {"piano": 5, "vocals": 5, "beat": 4, "blues": 2, "guitar": 1, "backup vocals": 1, "rap": 1},
+  "Mike Posner": {"piano": 2.5, "vocals": 4, "beat": 4, "blues": 1, "guitar": 1, "backup vocals": 1,"rap": 1},
+  "Black Eyed Peas/Rock That Body": {"piano": 2, "vocals": 5, "beat": 5, "blues": 1, "guitar":2, "backup vocals": 2, "rap": 4},
+  "Lady Gaga/Alejandro": {"piano": 1, "vocals": 5, "beat": 3, "blues": 2, "guitar": 1, "backup vocals": 2, "rap": 1}
+};
+
+
 function pearson(person1, person2){
   var numInCommon = 0;
   var xy = 0;
@@ -111,6 +133,55 @@ function cosine(person1, person2){
   return numerator/denominator;
 }
 
+function adjustedCosine(item1, item2, dataset){
+  var numerator = 0;
+  var denomLeft = 0;
+  var denomRight = 0;
+  for(person in dataset){
+    if(dataset.hasOwnProperty(person)){
+      var personRatings = dataset[person];
+      if(personRatings[item1] && (personRatings[item2])){
+        var average = averageRating(personRatings);
+        numerator+=((personRatings[item1]-average)*(personRatings[item2]-average));
+        denomLeft += Math.pow((personRatings[item1]-average), 2);
+        denomRight += Math.pow((personRatings[item2]-average), 2);
+      }
+    }
+  }
+  var denominator = Math.sqrt(denomLeft)*Math.sqrt(denomRight);
+  var res = numerator / denominator;
+  return res;
+}
+
+function averageRating(person){
+  var sum = 0;
+  var num = 0;
+  for(item in person){
+    if(person.hasOwnProperty(item)){
+      sum += person[item];
+      num++;
+    }
+  }
+
+  return sum / num;
+}
+
+function standardDeviation(ratings){
+  var average = averageRating(ratings);
+  var count = 0;
+  var num = 0;
+
+  for(var rating in ratings){
+    if(ratings.hasOwnProperty(rating)){
+      num += Math.pow((ratings[rating] - average), 2);
+      count++;
+    }
+  }
+
+  var sd = Math.sqrt(num/count);
+  return sd;
+}
+
 function Recommender(){
   this.init = function(self, data, k, metric, highisclose, n){
     if(k){ //k-nearest-neighbor
@@ -159,7 +230,37 @@ function Recommender(){
       return 0;
     });
     return distances.slice(0, self.k);
-  }
+  };
+
+  this.whatFeatures = function(self, item, neighbor){
+    var itemStats = self.database[item];
+    var neighborStats = self.database[neighbor];
+    var res = [];
+    var i=0;
+    var itemAvg = 0;
+    var neighborAvg = 0;
+    var countItem = 0;
+    var countNeighbor = 0;
+    for(var feature in itemStats){
+      if((feature in neighborStats)&&(itemStats.hasOwnProperty(feature))){
+        itemAvg += itemStats[feature];
+        neighborAvg += neighborStats[feature];
+        countItem++;
+        countNeighbor++;
+        var diff = Math.abs(itemStats[feature] - neighborStats[feature]);
+        res[i] = [feature, diff];
+      }
+    }
+    itemAvg /= countItem;
+    neighborAvg /= countNeighbor;
+
+    //compute sd
+    //sort array of features with ratings
+    //if low difference and ratings above SD, add to reasons
+    //if no such thing exists, allow if one rating is above sd
+    //if no such thing exists, allow if both ratings are above avg
+
+  };
 
   this.recommend = function(self, user){
     var recommendations = {};
@@ -200,7 +301,7 @@ function Recommender(){
     });
 
     return recommendationsArr.slice(0, self.n+1);
-  }
+  };
 
   this.computeDeviations = function(self){
     //for each person, get ratings
@@ -293,6 +394,97 @@ function Recommender(){
     });
 
     return recommendationsArr;
+  };
+
+  this.cosineItemRec = function(self, user){
+    //convert ratings to -1 to 1 scale
+    var adjustedData = {};
+    for(person in self.database){
+      if(self.database.hasOwnProperty(person)){
+        adjustedData[person] = {};
+        for(item in self.database[person]){
+          if(self.database[person].hasOwnProperty(item)){
+            adjustedData[person][item] = self.normalize(self.database[person][item], 1, 5);
+          }
+        }
+      }
+    }
+
+    //compute similarity of each pair of artists
+    // var pairs ={};
+    // for(person in adjustedData){
+    //   if(adjustedData.hasOwnProperty(person)){
+    //     var personRatings = adjustedData[person];
+    //     for(item1 in personRatings){
+    //       pairs[item1] = {};
+    //       for(item2 in personRatings){
+    //         if((item1 != item2)&&(personRatings.hasOwnProperty(item1))&&(personRatings.hasOwnProperty(item2))){
+    //           pairs[item1][item2] = adjustedCosine(item1, item2, adjustedData);
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+
+    var pairs ={};
+    for(person in self.database){
+      if(self.database.hasOwnProperty(person)){
+        var personRatings = self.database[person];
+        for(item1 in personRatings){
+          pairs[item1] = {};
+          for(item2 in personRatings){
+            if((item1 != item2)&&(personRatings.hasOwnProperty(item1))&&(personRatings.hasOwnProperty(item2))){
+              pairs[item1][item2] = adjustedCosine(item1, item2, self.database);
+            }
+          }
+        }
+      }
+    }
+
+    //compute predicted rating for each band user hasn't rated
+    var userRatings = adjustedData[user];
+    var recommendations = {};
+
+    var numerator = 0;
+    var denominator = 0;
+    for(person in adjustedData){
+      for(item in adjustedData[person]){
+        //find items that the user hasn't rated and that aren't already in recommendations
+        if((!(item in userRatings))&&(!(item in recommendations))&&(adjustedData.hasOwnProperty(person))&&(adjustedData[person].hasOwnProperty(item))){
+          for(ratedItem in userRatings){
+            //if the two items are similar
+            if((pairs[ratedItem][item])&&(userRatings.hasOwnProperty(ratedItem))){
+              numerator += (pairs[ratedItem][item]*userRatings[ratedItem]);
+              denominator += Math.abs(pairs[ratedItem][item]);
+            }
+          }
+          var rating = numerator / denominator;
+          recommendations[item] = self.denormalize(rating, 1, 5);
+        }
+      }
+    }
+
+      //turn recommendations obj into an array and sort
+      var recAry = convertObjtoArry(recommendations);
+      recAry.sort(function(a,b){
+        if(a > b)
+          return 1;
+        if(a < b)
+          return -1;
+        return 0;
+      });
+
+      return recAry;
+  };
+
+  this.normalize = function(rating, min, max){
+    var numerator = 2*(rating - min) - (max - min);
+    var denominator = max - min;
+    return numerator / denominator;
+  };
+
+  this.denormalize = function(rating, min, max){
+    return (0.5*((rating+1)*(max-min))+min);
   }
 }
 
@@ -308,14 +500,22 @@ function convertObjtoArry(obj){
   return arry;
 }
 
-var rec = new Recommender();
-rec.init(rec, users1, 1, pearson, true, 5);
-console.log(rec.recommend(rec, "Jordyn"));
-rec.computeDeviations(rec);
-console.log(rec.slopeOneRec(rec, users1['Jordyn']));
+// var rec = new Recommender();
+// rec.init(rec, users1, 1, pearson, true, 5);
+// console.log(rec.recommend(rec, "Jordyn"));
+// rec.computeDeviations(rec);
+// console.log(rec.slopeOneRec(rec, users1['Jordyn']));
 
-var itembased = new Recommender();
-itembased.init(itembased, users2, 1, pearson, true, 5);
-console.log(itembased.recommend(itembased, "Ben"));
-itembased.computeDeviations(itembased);
-console.log(itembased.slopeOneRec(itembased, users2['Ben']));
+// var itembased = new Recommender();
+// itembased.init(itembased, users2, 1, pearson, true, 5);
+// console.log(itembased.recommend(itembased, "Ben"));
+// itembased.computeDeviations(itembased);
+// console.log(itembased.slopeOneRec(itembased, users2['Ben']));
+
+var cosine = new Recommender();
+cosine.init(cosine, users3, 1, pearson, true, 5);
+console.log(cosine.cosineItemRec(cosine, "David"));
+
+var nearest = new Recommender();
+nearest.init(nearest, music, 1, pearson, true, 5);
+console.log(nearest.computeNearestNeighbor(nearest, 'The Black Keys/Magic Potion'));
