@@ -237,29 +237,59 @@ function Recommender(){
     var neighborStats = self.database[neighbor];
     var res = [];
     var i=0;
-    var itemAvg = 0;
-    var neighborAvg = 0;
-    var countItem = 0;
-    var countNeighbor = 0;
+    var itemAvg = averageRating(itemStats);
+    var neighborAvg = averageRating(neighborStats);
     for(var feature in itemStats){
       if((feature in neighborStats)&&(itemStats.hasOwnProperty(feature))){
-        itemAvg += itemStats[feature];
-        neighborAvg += neighborStats[feature];
-        countItem++;
-        countNeighbor++;
         var diff = Math.abs(itemStats[feature] - neighborStats[feature]);
         res[i] = [feature, diff];
       }
+      i++;
     }
-    itemAvg /= countItem;
-    neighborAvg /= countNeighbor;
 
-    //compute sd
-    //sort array of features with ratings
-    //if low difference and ratings above SD, add to reasons
-    //if no such thing exists, allow if one rating is above sd
-    //if no such thing exists, allow if both ratings are above avg
+    res.sort(function(a,b){
+      if(a[1] > b[1]){
+        return 1;
+      }
+      if(a[1] < b[1]){
+        return -1;
+      }
+      return 0;
+    });
 
+    var sdItem = standardDeviation(itemStats);
+    var sdNeighbor = standardDeviation(neighborStats);
+
+    var itemMeanSD = itemAvg + sdItem;
+    var neighborMeanSD = neighborAvg + sdItem;
+
+    var haveFeatures = false;
+    var features = [];
+
+    //one or both` ratings within 1 sd or more of mean
+    for(var i=0, len=res.length; i<res.length; i++){
+      if((itemStats[res[i][0]]>=itemMeanSD)||(neighborStats[res[i][0]]>=neighborMeanSD)){
+        haveFeatures = true;
+        features.push(res[i][0]);
+
+      }
+    }
+
+    //both ratings above average
+    if(!haveFeatures){
+      for(var i=0, len=res.length; i<res.length; i++){
+        if((!haveFeatures)&&((itemStats[res[i][0]]>=itemAvg)&&(neighborStats[res[i][0]]>=neighborAvg))){
+          haveFeatures = true;
+          features.push(res[i][0]);
+        }
+      }
+    }
+    //no features to be heard from
+    if(!haveFeatures){
+      console.log("this recommendation was a sucky recommendation");
+    }
+
+    return features;
   };
 
   this.recommend = function(self, user){
@@ -519,3 +549,4 @@ console.log(cosine.cosineItemRec(cosine, "David"));
 var nearest = new Recommender();
 nearest.init(nearest, music, 1, pearson, true, 5);
 console.log(nearest.computeNearestNeighbor(nearest, 'The Black Keys/Magic Potion'));
+console.log(nearest.whatFeatures(nearest, 'The Black Keys/Magic Potion', 'Heartless Bastards/Out at Sea'));
